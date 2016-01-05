@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+PROJECT_NAME=midonet-kubernetes
+PLUGIN_DIR=/usr/libexec/kubernetes/kubelet-plugins/net/exec/
+MIDOKUBE_DIR=${PLUGIN_DIR}/${PROJECT_NAME}
+source ${MIDOKUBE_DIR}/bin/activate
+source /tmp/keystone_admin
+PYTHONPATH=$PYTHONPATH:.  python ${MIDOKUBE_DIR}/midonet_kubernetes/plugin.py $@

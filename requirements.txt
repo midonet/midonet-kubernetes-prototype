@@ -1,0 +1,7 @@
+docker-py
+netaddr
+oslo.concurrency
+pybrctl
+pyroute2
+python-neutronclient
+requests[security]==2.5.3
