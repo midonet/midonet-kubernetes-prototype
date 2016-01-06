@@ -6,7 +6,7 @@ midonet-kubernetes
 The MidoNet network plugin for Kubernetes integration.
 
 Prerequisites
-=============
+-------------
 
 **`midonet-kubernetes` runs only on Ubuntu 14.04 LTS at this moment.**
 
@@ -23,7 +23,7 @@ Prerequisites
 [kubelet]: http://kubernetes.io/v1.1/docs/admin/kubelet.html
 
 Testing Deployment
-==================
+------------------
 
 `script/deply.sh` deploys the current `midonet-kubernetes` to the single or
 multiple hosts listed in the `.minion` file. Please make it sure you can access
