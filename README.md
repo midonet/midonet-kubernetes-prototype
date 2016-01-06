@@ -26,11 +26,11 @@ Testing Deployment
 ------------------
 
 `script/deply.sh` deploys the current `midonet-kubernetes` to the single or
-multiple hosts listed in the `.minion` file. Please make it sure you can access
+multiple hosts listed in the `.minions` file. Please make it sure you can access
 the hosts with `ssh` and `scp`.
 
 ```
-$ cat .minion
+$ cat .minions
 127.0.0.1
 $ ./script/deploy.sh
 ```
