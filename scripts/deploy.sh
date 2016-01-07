@@ -39,7 +39,7 @@ ${PSSH} -h ${MINION_LIST} -x "${SSH_OPT}" -i \
 
 echo "Installing pip and virtualenv"
 ${PSSH} -h ${MINION_LIST} -x "${SSH_OPT}" -i \
-    "sudo apt-get install -y python-pip libssl-dev libffi-dev; sudo pip install virtualenv requests[security]"
+    "sudo apt-get install -y python-pip python-dev libssl-dev libffi-dev; sudo pip install virtualenv requests[security]"
 
 if [[ "${COPY}" = "1" ]]; then
     echo "Deleting old ${PROJECT_NAME}"
