@@ -38,6 +38,9 @@ LOG_PATH = '/var/log/midonet-kubernetes/plugin.log'
 logging.basicConfig(filename=LOG_PATH, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+BINDING_EXECUTABLE='/usr/bin/mm-ctl'
+BIND='--bind-port'
+UNBIND='--unbind-port'
 HOST = os.environ.get('OS_HOST', '')
 ENDPOINT_URL = 'http://{0}:9696'.format(HOST)
 USERNAME = 'admin'
@@ -219,7 +222,7 @@ def setup(pod_namespace, pod_name, container_id):
     port_id = port['id']
     try:
         stdout, stderr = processutils.execute(
-            '/usr/local/bin/mm-ctl', 'bind', port_id, veth_name,
+            BINDING_EXECUTABLE, BIND, port_id, veth_name,
             run_as_root=True)
     except processutils.ProcessExecutionError as ex:
         logger.error('Binding the port is failed: {0}'.format(ex))
@@ -241,7 +244,7 @@ def teardown(pod_namespace, pod_name, container_id):
         port_id = filtered_ports[0]['id']
         try:
             stdout, stderr = processutils.execute(
-                '/usr/local/bin/mm-ctl', 'unbind', port_id, run_as_root=True)
+                BINDING_EXECUTABLE, UNBIND, port_id, run_as_root=True)
         except processutils.ProcessExecutionError as ex:
             logger.error('Unbinding the port is failed: {0}'.format(ex))
             sys.exit(-1)
