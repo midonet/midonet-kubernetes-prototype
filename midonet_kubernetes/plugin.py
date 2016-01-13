@@ -49,6 +49,7 @@ PASSWORD = 'midonet'
 AUTH_URL = 'http://{0}:35357/v2.0'.format(HOST)
 NETNS_PREFIX = '/var/run/netns/'
 PROC_TEMPLATE = '/proc/{0}/ns/net'
+GLOBAL_ROUTER_NAME = 'midonet-kubernetes'
 
 
 neutron = client_v2.Client(endpoint_url=ENDPOINT_URL, timeout=30,
@@ -93,6 +94,16 @@ def _get_ports_by_attrs(unique=True, **attrs):
             .format(', '.join(['{0}={1}'.format(k, v)
                                for k, v in attrs.items()])))
     return ports['ports']
+
+
+def _get_routers_by_attrs(unique=True, **attrs):
+    routers = neutron.list_routers(**attrs)
+    if unique and len(routers.get('routers', [])) > 1:
+        raise exceptions.DuplicatedResourceException(
+            "Multiple Neutron routers exist for the params {0}"
+            .format(', '.join(['{0}={1}'.format(k, v)
+                               for k, v in attrs.items()])))
+    return routers['routers']
 
 
 def init():
@@ -172,6 +183,22 @@ def _get_or_create_subnet(container_info, neutron_network_id=''):
     return created_subnet
 
 
+def _get_or_create_router(pod_namespace):
+    router_name = pod_namespace
+    routers = _get_routers_by_attrs(name=router_name)
+    router = {}
+    if not routers:
+	created_router_resopnse = neutron.create_router(
+	    {'router': {'name': router_name}})
+	router = created_router_resopnse['router']
+	logger.debug('Created the router {0}'.format(router))
+    else:
+	router = routers[0]
+	logger.debug('Reusing the router {0}'.format(router['id']))
+
+    return router
+
+
 def _create_port(container_info, neutron_network_id,
                  neutron_subnet_id, pod_name):
     ip_address = container_info['NetworkSettings']['IPAddress']
@@ -212,6 +239,26 @@ def setup(pod_namespace, pod_name, container_id):
 
     # Create a new subnet if the corresponding one doesn't exist.
     subnet = _get_or_create_subnet(container_info, network['id'])
+
+    router = _get_or_create_router(GLOBAL_ROUTER_NAME)
+
+    neutron_router_id = router['id']
+    neutron_subnet_id = subnet['id']
+    filtered_ports = _get_ports_by_attrs(
+	unique=False,  device_owner='network:router_interface',
+	device_id=neutron_router_id)
+
+    router_ports = [port for port in filtered_ports
+		    if ((neutron_subnet_id in [
+			fip['subnet_id'] for fip in port.get('fixed_ips', [])])
+			or (neutron_subnet_id == port.get('subnet_id', '')))]
+
+    if not router_ports:
+	neutron.add_interface_router(
+	    neutron_router_id, {'subnet_id': neutron_subnet_id})
+    else:
+	logger.debug('The subnet {0} is already bound to the router'
+		     .format(neutron_subnet_id))
 
     port = _create_port(container_info, network['id'], subnet['id'], pod_name)
 
@@ -255,12 +302,23 @@ def teardown(pod_namespace, pod_name, container_id):
 
     subnet = _get_or_create_subnet(container_info)
     neutron_subnet_id = subnet['id']
+
+    router = _get_or_create_router(GLOBAL_ROUTER_NAME)
+    neutron_router_id = router['id']
+
     try:
         neutron.delete_subnet(neutron_subnet_id)
+	logger.debug('Deleted the subnet {0}'.format(neutron_subnet_id))
     except n_exceptions.Conflict as ex:
         logger.info('The subnet {0} is still in use.'
                     .format(neutron_subnet_id))
-    logger.debug('Deleted the subnet {0}'.format(neutron_subnet_id))
+
+    try:
+	neutron.delete_router(neutron_router_id)
+ 	logger.debug('Deleted the router {0}'.format(neutron_subnet_id))
+    except n_exceptions.Conflict as ex:
+	logger.info('The router {0} is still in use.'
+		    .format(neutron_router_id))
 
     filtered_networks = _get_networks_by_attrs(name=pod_namespace)
     neutron_network_id = filtered_networks[0]['id']
