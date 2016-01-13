@@ -65,9 +65,9 @@ def _get_short_docker_id(docker_id):
     return docker_id[:12]
 
 
-def _get_networks_by_attrs(**attrs):
+def _get_networks_by_attrs(unique=True, **attrs):
     networks = neutron.list_networks(**attrs)
-    if len(networks.get('networks', [])) > 1:
+    if unique and len(networks.get('networks', [])) > 1:
         raise exceptions.DuplicatedResourceException(
             "Multiple Neutron networks exist for the params {0}"
             .format(', '.join(['{0}={1}'.format(k, v)
@@ -75,9 +75,9 @@ def _get_networks_by_attrs(**attrs):
     return networks['networks']
 
 
-def _get_subnets_by_attrs(**attrs):
+def _get_subnets_by_attrs(unique=True, **attrs):
     subnets = neutron.list_subnets(**attrs)
-    if len(subnets.get('subnets', [])) > 2:  # subnets for IPv4 and/or IPv6
+    if unique and len(subnets.get('subnets', [])) > 2:  # subnets for IPv4 and/or IPv6
         raise exceptions.DuplicatedResourceException(
             "Multiple Neutron subnets exist for the params {0} "
             .format(', '.join(['{0}={1}'.format(k, v)
@@ -85,9 +85,9 @@ def _get_subnets_by_attrs(**attrs):
     return subnets['subnets']
 
 
-def _get_ports_by_attrs(**attrs):
+def _get_ports_by_attrs(unique=True, **attrs):
     ports = neutron.list_ports(**attrs)
-    if len(ports.get('ports', [])) > 1:
+    if unique and len(ports.get('ports', [])) > 1:
         raise exceptions.DuplicatedResourceException(
             "Multiple Neutron ports exist for the params {0} "
             .format(', '.join(['{0}={1}'.format(k, v)
