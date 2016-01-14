@@ -175,7 +175,8 @@ def _get_or_create_subnet(container_info, neutron_network_id=''):
     subnet_network = str(cidr.network)
     subnet_cidr = '/'.join([subnet_network, str(cidr.prefixlen)])
     created_subnet = {}
-    subnets = _get_subnets_by_attrs(cidr=str(subnet_cidr))
+    subnets = _get_subnets_by_attrs(cidr=str(subnet_cidr),
+				    network_id=neutron_network_id)
     if not subnets:
         new_subnet = {
             'network_id': neutron_network_id,
