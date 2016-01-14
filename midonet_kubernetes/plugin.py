@@ -106,6 +106,16 @@ def _get_routers_by_attrs(unique=True, **attrs):
     return routers['routers']
 
 
+def _get_router_ports_by_subnet_id(neutron_subnet_id, neutron_port_list):
+    router_ports = [
+	port for port in neutron_port_list
+	if ((neutron_subnet_id in [fip['subnet_id']
+				   for fip in port.get('fixed_ips', [])])
+	    or (neutron_subnet_id == port.get('subnet_id', '')))]
+
+    return router_ports
+
+
 def init():
     """Initializes the network plugin.
 
@@ -249,10 +259,8 @@ def setup(pod_namespace, pod_name, container_id):
 	unique=False, device_owner='network:router_interface',
 	device_id=neutron_router_id, network_id=neutron_network_id)
 
-    router_ports = [port for port in filtered_ports
-		    if ((neutron_subnet_id in [
-			fip['subnet_id'] for fip in port.get('fixed_ips', [])])
-			or (neutron_subnet_id == port.get('subnet_id', '')))]
+    router_ports = _get_router_ports_by_subnet_id(
+	neutron_subnet_id, filtered_ports)
 
     if not router_ports:
 	neutron.add_interface_router(
