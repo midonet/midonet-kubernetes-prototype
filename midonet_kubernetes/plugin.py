@@ -300,7 +300,10 @@ def teardown(pod_namespace, pod_name, container_id):
         neutron.delete_port(port_id)
         logger.debug('Successfuly deleted the port {0}'.format(port_id))
 
-    subnet = _get_or_create_subnet(container_info)
+    filtered_networks = _get_networks_by_attrs(name=pod_namespace)
+    neutron_network_id = filtered_networks[0]['id']
+
+    subnet = _get_or_create_subnet(container_info, neutron_network_id)
     neutron_subnet_id = subnet['id']
 
     router = _get_or_create_router(GLOBAL_ROUTER_NAME)
@@ -313,15 +316,6 @@ def teardown(pod_namespace, pod_name, container_id):
         logger.info('The subnet {0} is still in use.'
                     .format(neutron_subnet_id))
 
-    try:
-	neutron.delete_router(neutron_router_id)
- 	logger.debug('Deleted the router {0}'.format(neutron_subnet_id))
-    except n_exceptions.Conflict as ex:
-	logger.info('The router {0} is still in use.'
-		    .format(neutron_router_id))
-
-    filtered_networks = _get_networks_by_attrs(name=pod_namespace)
-    neutron_network_id = filtered_networks[0]['id']
     try:
         neutron.delete_network(neutron_network_id)
     except n_exceptions.Conflict as ex:
