@@ -14,6 +14,7 @@
 
 from __future__ import print_function
 
+import json
 import logging
 import os
 import subprocess
@@ -352,7 +353,34 @@ def status(pod_namespace, pod_name, container_id):
 
     This function is called when 'status' is given as the first argument.
     """
-    pass
+    filtered_networks = _get_networks_by_attrs(name=pod_namespace)
+    if not filtered_networks:
+	return
+    network = filtered_networks[0]
+    neutron_network_id = network['id']
+    filtered_ports = _get_ports_by_attrs(
+	name=pod_name, network_id=neutron_network_id)
+    if not filtered_ports:
+	return
+    port = filtered_ports[0]
+    ip_address = port.get('ip_address', '')
+    fixed_ips = port.get('fixed_ips', [])
+    if not ip_address:
+	for fixed_ip in fixed_ips:
+	    ip = netaddr.IPAddress(fixed_ip['ip_address'])
+	    if ip.version == 4:
+		ip_address = fixed_ip['ip_address']
+		break
+
+    status_response = {
+	"apiVersion" : "v1beta1",
+	"kind" : "PodNetworkStatus",
+    }
+    status_response['ip'] = ip_address
+    logger.debug('Sending the status of {0}, {1}: {2}'
+		 .format(pod_name, pod_namespace, status_response))
+
+    sys.stdout.write(json.dumps(status_response))
 
 
 def dispatch(action, pod_namespace=None, pod_name=None, container_id=None):
