@@ -234,6 +234,7 @@ def setup(pod_namespace, pod_name, container_id):
     else:
         network = networks[0]
         logger.debug('Reusing the network {0}'.format(network['id']))
+    neutron_network_id = network['id']
 
     container_info = docker_client.inspect_container(container_id)
 
@@ -245,8 +246,8 @@ def setup(pod_namespace, pod_name, container_id):
     neutron_router_id = router['id']
     neutron_subnet_id = subnet['id']
     filtered_ports = _get_ports_by_attrs(
-	unique=False,  device_owner='network:router_interface',
-	device_id=neutron_router_id)
+	unique=False, device_owner='network:router_interface',
+	device_id=neutron_router_id, network_id=neutron_network_id)
 
     router_ports = [port for port in filtered_ports
 		    if ((neutron_subnet_id in [
@@ -260,7 +261,8 @@ def setup(pod_namespace, pod_name, container_id):
 	logger.debug('The subnet {0} is already bound to the router'
 		     .format(neutron_subnet_id))
 
-    port = _create_port(container_info, network['id'], subnet['id'], pod_name)
+    port = _create_port(container_info, neutron_network_id,
+			neutron_subnet_id, pod_name)
 
     # Getting the veth name.
     veth_name = get_veth_name_for_container(container_info)
