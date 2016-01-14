@@ -319,6 +319,18 @@ def teardown(pod_namespace, pod_name, container_id):
     router = _get_or_create_router(GLOBAL_ROUTER_NAME)
     neutron_router_id = router['id']
 
+    filtered_ports = _get_ports_by_attrs(
+	unique=False, device_owner='network:router_interface',
+	device_id=neutron_router_id, network_id=neutron_network_id)
+
+    router_ports = _get_router_ports_by_subnet_id(neutron_subnet_id, filtered_ports)
+
+    if len(router_ports) == 1:
+	neutron.remove_interface_router(
+	    neutron_router_id, {'subnet_id': neutron_subnet_id})
+	logger.debug('The subnet {0} is unbound from the router {1}'
+		     .format(neutron_subnet_id, neutron_router_id))
+
     try:
         neutron.delete_subnet(neutron_subnet_id)
 	logger.debug('Deleted the subnet {0}'.format(neutron_subnet_id))
