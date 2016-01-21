@@ -25,6 +25,7 @@ import docker
 from neutronclient.common import exceptions as n_exceptions
 from neutronclient.v2_0 import client as client_v2
 import netaddr
+from oslo_concurrency import lockutils
 from oslo_concurrency import processutils
 from pybrctl import pybrctl
 import pyroute2
@@ -230,6 +231,8 @@ def _create_port(container_info, neutron_network_id,
     return created_port
 
 
+@lockutils.synchronized('k8s-np-lock', lock_file_prefix='k8s-np-lock',
+			external=True, lock_path='/tmp/')
 def setup(pod_namespace, pod_name, container_id):
     """Creates the network for the container.
 
@@ -291,6 +294,8 @@ def setup(pod_namespace, pod_name, container_id):
                  .format(port_id, veth_name))
 
 
+@lockutils.synchronized('k8s-np-lock', lock_file_prefix='k8s-np-lock',
+			external=True, lock_path='/tmp/')
 def teardown(pod_namespace, pod_name, container_id):
     """Destroys the network for the container.
 
