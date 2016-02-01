@@ -293,56 +293,56 @@ def _get_or_create_router(pod_namespace):
 
 
 def _get_or_create_pools_and_vips(service_name, subnet_id, service_spec):
-        cluster_ip = service_spec['clusterIP']
-        ports = service_spec['ports']
-        pools = []
-        vips = []
-        for port in ports:
-            protocol = port['protocol']
-            protocol_port = port['targetPort']
-            neutron_pools = _get_pools_by_attrs(
-                name=service_name, protocol=protocol, subnet_id=subnet_id)
-            neutron_pool = {}
-            if not neutron_pools:
-                pool_request = {
-                    'pool': {
-                        'name': service_name,
-                        'protocol': protocol,
-                        'subnet_id': subnet_id,
-                        'lb_method': 'ROUND_ROBIN',
-                    },
-                }
-                neutron_pool_response = neutron.create_pool(pool_request)
-                neutron_pool = neutron_pool_response['pool']
-            else:
-                neutron_pool = neutron_pools[0]
-            pools.append(neutron_pool)
+    cluster_ip = service_spec['clusterIP']
+    ports = service_spec['ports']
+    pools = []
+    vips = []
+    for port in ports:
+        protocol = port['protocol']
+        protocol_port = port['targetPort']
+        neutron_pools = _get_pools_by_attrs(
+            name=service_name, protocol=protocol, subnet_id=subnet_id)
+        neutron_pool = {}
+        if not neutron_pools:
+            pool_request = {
+                'pool': {
+                    'name': service_name,
+                    'protocol': protocol,
+                    'subnet_id': subnet_id,
+                    'lb_method': 'ROUND_ROBIN',
+                },
+            }
+            neutron_pool_response = neutron.create_pool(pool_request)
+            neutron_pool = neutron_pool_response['pool']
+        else:
+            neutron_pool = neutron_pools[0]
+        pools.append(neutron_pool)
 
-            pool_id = neutron_pool['id']
-            neutron_vips = _get_vips_by_attrs(
-                name=service_name, protocol=protocol, subnet_id=subnet_id,
-                pool_id=pool_id, ddress=cluster_ip)
-            neutron_vip = {}
-            if not neutron_vips:
-                vip_request = {
-                    'vip': {
-                        # name is not necessary unique and the service name is
-                        # used for the group of the vips.
-                        'name': service_name,
-                        'pool_id': pool_id,
-                        'subnet_id': subnet_id,
-                        'address': cluster_ip,
-                        'protocol': protocol,
-                        'protocol_port': protocol_port,
-                    },
-                }
-                neutron_vip_response = neutron.create_vip(vip_request)
-                neutron_vip = neutron_vip_response['vip']
-            else:
-                neutron_vip = neutron_vips[0]
-            vips.append(neutron_vip)
+        pool_id = neutron_pool['id']
+        neutron_vips = _get_vips_by_attrs(
+            name=service_name, protocol=protocol, subnet_id=subnet_id,
+            pool_id=pool_id, address=cluster_ip)
+        neutron_vip = {}
+        if not neutron_vips:
+            vip_request = {
+                'vip': {
+                    # name is not necessary unique and the service name is
+                    # used for the group of the vips.
+                    'name': service_name,
+                    'pool_id': pool_id,
+                    'subnet_id': subnet_id,
+                    'address': cluster_ip,
+                    'protocol': protocol,
+                    'protocol_port': protocol_port,
+                },
+            }
+            neutron_vip_response = neutron.create_vip(vip_request)
+            neutron_vip = neutron_vip_response['vip']
+        else:
+            neutron_vip = neutron_vips[0]
+        vips.append(neutron_vip)
 
-        return (pools, vips)
+    return (pools, vips)
 
 
 def _get_ip_address_in_port(neutron_port):
@@ -414,33 +414,28 @@ def _emulate_kube_proxy(pod_namespace, pod_name, cluster_ip_subnet_id, neutron_p
 
 def _cleanup_emulated_kube_proxy(pod_namespace, pod_name, cluster_ip_subnet_id, port):
     service_name = get_service_name(pod_name)
-    services = get_services(pod_namespace)
-    logger.debug('services: {0}'.format(services))
+    pools = _get_pools_by_attrs(name=service_name, subnet_id=cluster_ip_subnet_id)
+    vips = _get_vips_by_attrs(name=service_name, subnet_id=cluster_ip_subnet_id)
+    if pools:
+        neutron_pool = pools[0]
+        neutron_vip = vips[0]
 
-    service = get_service(pod_namespace, service_name)
-    logger.debug('service: {0}'.format(service))
-    service_spec = service['spec']
+        address = _get_ip_address_in_port(port)
+        pool_id = neutron_pool['id']
+        members = _get_members_by_attrs(address=address, pool_id=pool_id)
+        member = members[0]
+        neutron.delete_member(member['id'])
 
-    pools, vips = _get_or_create_pools_and_vips(
-        service_name, cluster_ip_subnet_id, service_spec)
-    neutron_pool = pools[0]
-    neutron_vip = vips[0]
+        vip_id = neutron_vip['id']
+        try:
+            neutron.delete_vip(vip_id)
+        except n_exceptions.Conflict:
+            logger.info('The vip {0} is still in use.'.format(vip_id))
 
-    address = _get_ip_address_in_port(port)
-    pool_id = neutron_pool['id']
-    member = _get_members_by_attrs(address=address, pool_id=pool_id)
-    neutron.delete_member(member['id'])
-
-    vip_id = neutron_vip['id']
-    try:
-        neutron.delete_vip(vip_id)
-    except n_exceptions.Conflict:
-        logger.info('The vip {0} is still in use.'.format(vip_id))
-
-    try:
-        neutron.delete_pool(pool_id)
-    except n_exceptions.Conflict:
-        logger.info('the pool {0} is still in use.'.format(pool_id))
+        try:
+            neutron.delete_pool(pool_id)
+        except n_exceptions.Conflict:
+            logger.info('The pool {0} is still in use.'.format(pool_id))
 
     logger.debug('Successfully cleaned the emulated kube-proxy resources up')
 
