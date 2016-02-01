@@ -577,6 +577,23 @@ def teardown(pod_namespace, pod_name, container_id):
         logger.info('The subnet {0} is still in use.'
                     .format(neutron_subnet_id))
 
+    cluster_ip_router_ports = _get_router_ports_by_subnet_id(
+        cluster_ip_subnet_id, filtered_ports)
+
+    if len(cluster_ip_router_ports) == 1:
+        neutron.remove_interface_router(
+            neutron_router_id, {'subnet_id': cluster_ip_subnet_id})
+        logger.debug('The cluster IP subnet {0} is unbound from the router {1}'
+                     .format(cluster_ip_subnet_id, neutron_router_id))
+
+    try:
+        neutron.delete_subnet(cluster_ip_subnet_id)
+        logger.debug('The cluseter IP subnet {0} is deleted successfully.'
+                     .format(cluster_ip_subnet_id))
+    except n_exceptions.Conflict:
+        logger.info('The cluseter IP subnet {0} is still in use.'
+                    .format(cluster_ip_subnet_id))
+
     try:
         neutron.delete_network(neutron_network_id)
     except n_exceptions.Conflict as ex:
