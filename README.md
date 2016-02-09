@@ -1,7 +1,8 @@
 midonet-kubernetes
 ==================
 
-**This is still pre-alpha and aggressively under development. Please don't use this.**
+**This is a Prototype for exploring integration points and it is not under
+development. Please don't use this.**
 
 The MidoNet network plugin for Kubernetes integration.
 
